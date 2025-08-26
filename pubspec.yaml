@@ -1,0 +1,46 @@
+name: farad_app
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # ✅ Firebase + related packages (latest stable)
+  firebase_core: ^3.3.0
+  firebase_auth: ^5.1.2
+  cloud_firestore: ^5.2.1
+  firebase_storage: ^12.1.2
+
+  # ✅ Other packages
+  image_picker: ^1.1.1
+  flutter_native_splash: ^2.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/logo.png"
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#000000"
+  image: "assets/icon/logo.png"
+  android: true
+  ios: true
