@@ -1,67 +1,126 @@
-// lib/confirm_page.dart - FINAL LIVE VERSION
-
 import 'package:flutter/material.dart';
-import 'package:farad_app/main_page.dart'; // To navigate back to the main app
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'services/flutterwave_service.dart';
+import 'home_screen.dart';
 
 class ConfirmPage extends StatefulWidget {
-  const ConfirmPage({super.key});
+  final double amount;
+  final String driverName;
+  final String pickupLocation;
+  final String deliveryLocation;
+  final String truckModel;
+
+  const ConfirmPage({
+    super.key,
+    required this.amount,
+    required this.driverName,
+    required this.pickupLocation,
+    required this.deliveryLocation,
+    required this.truckModel,
+  });
 
   @override
   State<ConfirmPage> createState() => _ConfirmPageState();
 }
 
 class _ConfirmPageState extends State<ConfirmPage> {
-  // A GlobalKey for our form to handle validation
   final _formKey = GlobalKey<FormState>();
+  bool _isProcessing = false;
 
-  // This function simulates the payment process
-  void _processPayment() {
-    // First, check if the card details form is valid
+  Future<void> _processPayment() async {
     if (_formKey.currentState!.validate()) {
-      // --- This is where the magic happens ---
-      // In a real app, you would call a payment gateway (like Paystack) here.
-      // For now, we will just pretend. We'll create a "random" success or failure.
-      bool paymentWasSuccessful = DateTime.now().second % 2 == 0; // 50% chance of success
+      setState(() => _isProcessing = true);
+      
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          // Create order document first
+          final orderDoc = await FirebaseFirestore.instance
+              .collection('orders')
+              .add({
+            'customerId': user.uid,
+            'customerName': user.displayName ?? 'Customer',
+            'driverId': '',
+            'driverName': widget.driverName,
+            'truckId': '',
+            'truckModel': widget.truckModel,
+            'pickupLocation': widget.pickupLocation,
+            'deliveryLocation': widget.deliveryLocation,
+            'amount': widget.amount,
+            'paymentStatus': 'pending',
+            'orderStatus': 'requested',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
 
-      if (paymentWasSuccessful) {
-        // Show the "Congratulations" pop-up
-        showDialog(
-          context: context,
-          barrierDismissible: false, // User must tap button to close
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Colors.grey[800],
-            title: const Text('Congratulations!', style: TextStyle(color: Colors.white)),
-            content: const Text('Your payment was successful and your order is confirmed.', style: TextStyle(color: Colors.white70)),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  // Navigate all the way back to the main screen, clearing the history
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const MainPage(name: "Jerry")), // We need to pass a name back
+          // Process payment
+          final success = await FlutterwaveService.processPayment(
+            email: user.email ?? '',
+            customerName: user.displayName ?? 'Customer',
+            amount: widget.amount,
+            orderId: orderDoc.id,
+          );
+
+          if (!mounted) return;
+
+          if (success) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: Colors.grey[800],
+                title: const Text('Success!',
+                    style: TextStyle(color: Colors.white)),
+                content: const Text(
+                  'Payment successful! Your order is confirmed.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute(
+                          builder: (context) => HomeScreen(
+                            name: user.displayName ?? 'User',
+                          ),
+                        ),
                         (Route<dynamic> route) => false,
-                  );
-                },
-                child: const Text('Done'),
-              )
-            ],
-          ),
-        );
-      } else {
-        // Show the "Payment Failed" pop-up
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Colors.grey[800],
-            title: const Text('Payment Failed', style: TextStyle(color: Colors.white)),
-            content: const Text('There were insufficient funds in your account. Please try another card or payment method.', style: TextStyle(color: Colors.white70)),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(), // Just close the dialog
-                child: const Text('Try Again'),
-              )
-            ],
-          ),
-        );
+                      );
+                    },
+                    child: const Text('Done'),
+                  )
+                ],
+              ),
+            );
+          } else {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                backgroundColor: Colors.grey[800],
+                title: const Text('Payment Failed',
+                    style: TextStyle(color: Colors.white)),
+                content: const Text(
+                  'Your payment could not be processed. Please try again.',
+                  style: TextStyle(color: Colors.white70),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Try Again'),
+                  )
+                ],
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
+        }
+      } finally {
+        setState(() => _isProcessing = false);
       }
     }
   }
@@ -79,25 +138,51 @@ class _ConfirmPageState extends State<ConfirmPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // -- Custom Header --
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Chip(label: Text('FARAD'), backgroundColor: Colors.grey),
-                      TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Back')),
-                      const Text('Confirm', style: TextStyle(color: Colors.white)),
+                      const Chip(
+                        label: Text('FARAD'),
+                        backgroundColor: Colors.grey,
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Back'),
+                      ),
+                      const Text('Confirm',
+                          style: TextStyle(color: Colors.white)),
                     ],
                   ),
                   const SizedBox(height: 40),
-                  const Text('This will be charged from your account', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Amount: ₦${widget.amount.toStringAsFixed(2)}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Driver: ${widget.driverName}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
                   const SizedBox(height: 30),
-
-                  // --- Card Details Form ---
                   TextFormField(
                     style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(labelText: 'Card Number', labelStyle: const TextStyle(color: Colors.white70), filled: true, fillColor: Colors.grey[900], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
+                    decoration: InputDecoration(
+                      labelText: 'Card Number',
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.grey[900],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     keyboardType: TextInputType.number,
-                    validator: (value) => value!.isEmpty ? 'Please enter a card number' : null,
+                    validator: (value) =>
+                        value!.isEmpty ? 'Enter card number' : null,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -105,45 +190,51 @@ class _ConfirmPageState extends State<ConfirmPage> {
                       Expanded(
                         child: TextFormField(
                           style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(labelText: 'Expiry Date (MM/YY)', labelStyle: const TextStyle(color: Colors.white70), filled: true, fillColor: Colors.grey[900], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                          keyboardType: TextInputType.datetime,
-                          validator: (value) => value!.isEmpty ? 'Please enter an expiry date' : null,
+                          decoration: InputDecoration(
+                            labelText: 'MM/YY',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            filled: true,
+                            fillColor: Colors.grey[900],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          validator: (value) =>
+                              value!.isEmpty ? 'Required' : null,
                         ),
                       ),
                       const SizedBox(width: 16),
                       Expanded(
                         child: TextFormField(
                           style: const TextStyle(color: Colors.white),
-                          decoration: InputDecoration(labelText: 'CVV', labelStyle: const TextStyle(color: Colors.white70), filled: true, fillColor: Colors.grey[900], border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-                          keyboardType: TextInputType.number,
-                          validator: (value) => value!.isEmpty ? 'Please enter a CVV' : null,
+                          decoration: InputDecoration(
+                            labelText: 'CVV',
+                            labelStyle: const TextStyle(color: Colors.white70),
+                            filled: true,
+                            fillColor: Colors.grey[900],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          obscureText: true,
+                          validator: (value) =>
+                              value!.isEmpty ? 'Required' : null,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
-                  const Text('Accepted Cards: Mastercard, Visa, Verve, JCB, AmEx', style: TextStyle(color: Colors.white70, fontSize: 12), textAlign: TextAlign.center),
-
                   const SizedBox(height: 40),
-                  const Divider(color: Colors.grey),
-                  const Center(child: Text('OR PAY WITH', style: TextStyle(color: Colors.white70))),
-                  const Divider(color: Colors.grey),
-                  const SizedBox(height: 20),
-
-                  // --- Other Payment Options ---
-                  ElevatedButton(onPressed: () {}, child: const Text('Pay with OPay')),
-                  const SizedBox(height: 12),
-                  ElevatedButton(onPressed: () {}, child: const Text('Pay with PayPal')),
-                  const SizedBox(height: 12),
-                  ElevatedButton(onPressed: () {}, child: const Text('Pay with Kuda')),
-
-                  const SizedBox(height: 40),
-
-                  // --- Confirm Button ---
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[800], foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                    onPressed: _processPayment, // This now calls our smart payment function
-                    child: const Text('Confirm'),
+                  FilledButton(
+                    onPressed: _isProcessing ? null : _processPayment,
+                    child: _isProcessing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Complete Payment'),
                   ),
                 ],
               ),
