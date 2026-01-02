@@ -5,9 +5,8 @@ on:
     branches: [ main ]
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
       
@@ -16,19 +15,14 @@ jobs:
         with:
           flutter-version: '3.13.0'
       
-      - name: Enable Flutter Web
-        run: flutter config --enable-web
-      
-      - name: Get dependencies
+      - name: Install deps
         run: flutter pub get
       
-      - name: Build Web
+      - name: Build web
         run: flutter build web --release
       
-      - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_FARAD }}'
-          channelId: live
-          projectId: farad
+      - name: Install Firebase Tools
+        run: npm install -g firebase-tools
+      
+      - name: Deploy
+        run: firebase deploy --project farad --token "${{ secrets.FIREBASE_TOKEN }}" --only hosting:farad
