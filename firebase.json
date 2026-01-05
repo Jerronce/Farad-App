@@ -1,1 +1,16 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"farad-5bc61","appId":"1:541862121948:android:9c931e260c37e49914ff19","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"farad-5bc61","configurations":{"android":"1:541862121948:android:9c931e260c37e49914ff19","ios":"1:541862121948:ios:e3a24c895c14fb0d14ff19","macos":"1:541862121948:ios:e3a24c895c14fb0d14ff19","web":"1:541862121948:web:5f67b6a8899696e714ff19","windows":"1:541862121948:web:0a4c5d3ecfab8ecb14ff19"}}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
