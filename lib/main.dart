@@ -1,34 +1,53 @@
 import 'package:flutter/material.dart';
-import 'package:farad_app/login_page.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(const MyApp());
+  runApp(const FaradApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class FaradApp extends StatelessWidget {
+  const FaradApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Farad',
-      debugShowCheckedModeBanner: false,
+      title: 'Farad Logistics',
       theme: ThemeData(
+        primarySwatch: Colors.blue,
         useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.cyan,
-          brightness: Brightness.dark,
-        ),
-        scaffoldBackgroundColor: Colors.black,
       ),
-      home: const LoginPage(),
+      home: const HomePage(),
+    );
+  }
+}
+
+class HomePage extends StatelessWidget {
+  const HomePage({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Farad - Logistics'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Text(
+              'Welcome to Farad',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 20),
+            Text('Logistics Made Easy'),
+          ],
+        ),
+      ),
     );
   }
 }
