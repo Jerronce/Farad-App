@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "541862121948",
+    "project_id": "farad-5bc61",
+    "storage_bucket": "farad-5bc61.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:541862121948:android:9c931e260c37e49914ff19",
+        "android_client_info": {
+          "package_name": "com.example.farad"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCi39QxU67_1B76KgaWKKEJ6GW_2Vj_UtQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

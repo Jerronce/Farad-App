@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="gcm_defaultSenderId" translatable="false">541862121948</string>
+    <string name="google_api_key" translatable="false">AIzaSyCi39QxU67_1B76KgaWKKEJ6GW_2Vj_UtQ</string>
+    <string name="google_app_id" translatable="false">1:541862121948:android:9c931e260c37e49914ff19</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyCi39QxU67_1B76KgaWKKEJ6GW_2Vj_UtQ</string>
+    <string name="google_storage_bucket" translatable="false">farad-5bc61.firebasestorage.app</string>
+    <string name="project_id" translatable="false">farad-5bc61</string>
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">?android:colorBackground</item>
+    </style>
+</resources>
