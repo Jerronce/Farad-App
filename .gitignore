@@ -32,10 +32,14 @@ migrate_working_dir/
 .pub-cache/
 .pub/
 /build/
+dist/
 node_modules/
+functions/node_modules/
 .tooling/
 .firebase/
+.gradle-user/
 package-lock.json
+.env.local
 
 # Symbolication related
 app.*.symbols

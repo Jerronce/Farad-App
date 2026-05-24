@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'firebase_options.dart';
 
 const String kAdminEmail = 'jerronce101@gmail.com';
+const String kCurrencyCode = 'USD';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -158,6 +159,27 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
+  Future<void> _sendResetLink() async {
+    final String email = _email.text.trim().toLowerCase();
+    if (email.isEmpty || !email.contains('@')) {
+      _message('Enter your email first, then tap forgot password.');
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _message('Password reset link sent to $email.');
+    } on FirebaseAuthException catch (error) {
+      _message(_friendlyAuthMessage(error));
+    } catch (error) {
+      _message('Could not send reset email: $error');
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -167,10 +189,16 @@ class _AuthScreenState extends State<AuthScreen> {
       final FirebaseAuth auth = FirebaseAuth.instance;
       final String email = _email.text.trim().toLowerCase();
       if (_login) {
-        await auth.signInWithEmailAndPassword(
+        final UserCredential credential = await auth.signInWithEmailAndPassword(
           email: email,
           password: _password.text.trim(),
         );
+        final DocumentSnapshot<Map<String, dynamic>> userDoc =
+            await FirebaseFirestore.instance.collection('users').doc(credential.user!.uid).get();
+        final String storedName = (userDoc.data()?['displayName'] ?? '').toString().trim();
+        if (storedName.isNotEmpty && credential.user!.displayName != storedName) {
+          await credential.user!.updateDisplayName(storedName);
+        }
       } else {
         final UserCredential credential = await auth.createUserWithEmailAndPassword(
           email: email,
@@ -191,7 +219,7 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } on FirebaseAuthException catch (error) {
-      _message(error.message ?? 'Authentication failed.');
+      _message(_friendlyAuthMessage(error));
     } catch (error) {
       _message('Authentication failed: $error');
     } finally {
@@ -203,6 +231,24 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _message(String text) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  String _friendlyAuthMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-credential':
+      case 'user-not-found':
+        return 'No account matched that email. Sign up first before logging in.';
+      case 'wrong-password':
+        return 'That password is not correct.';
+      case 'email-already-in-use':
+        return 'That email already has an account. Log in instead.';
+      case 'invalid-email':
+        return 'Enter a valid email address.';
+      case 'too-many-requests':
+        return 'Too many attempts right now. Please wait a moment and try again.';
+      default:
+        return error.message ?? 'Authentication failed.';
+    }
   }
 
   @override
@@ -250,17 +296,36 @@ class _AuthScreenState extends State<AuthScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
-          children: const <Widget>[
-            Chip(label: Text('Farad Interactive')),
-            SizedBox(height: 16),
-            Text(
-              'Interactive pickup and driver logistics.',
-              style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1.1),
+          children: <Widget>[
+            const Chip(label: Text('Farad Live Dispatch')),
+            const SizedBox(height: 18),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: Image.asset(
+                'assets/icon/logo.png',
+                height: 120,
+                fit: BoxFit.contain,
+              ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 20),
             Text(
-              'Customers can sign up, log in, choose payment, request deliveries, and track status. Drivers can switch mode, onboard with their pricing, and accept jobs live.',
+              'Move anything fast with a logistics app that feels premium from the first click.',
+              style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, height: 1.1),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Farad connects customers and verified drivers in real time. Book pickups, choose your payment method, and dispatch delivery jobs to live drivers with transparent pricing and fast status updates.',
               style: TextStyle(height: 1.6),
+            ),
+            const SizedBox(height: 18),
+            const Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: <Widget>[
+                Chip(label: Text('Live driver matching')),
+                Chip(label: Text('Secure account access')),
+                Chip(label: Text('Payment-ready delivery flow')),
+              ],
             ),
           ],
         ),
@@ -281,6 +346,13 @@ class _AuthScreenState extends State<AuthScreen> {
               Text(
                 _login ? 'Login' : 'Sign Up',
                 style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _login
+                    ? 'Log in to manage deliveries, switch modes, and continue where you stopped.'
+                    : 'Create your account first. Only registered users can log in to Farad.',
+                style: const TextStyle(color: Color(0xFF475467), height: 1.4),
               ),
               const SizedBox(height: 18),
               if (!_login) ...<Widget>[
@@ -303,6 +375,16 @@ class _AuthScreenState extends State<AuthScreen> {
                 decoration: const InputDecoration(labelText: 'Password'),
                 validator: (String? value) => value == null || value.trim().length < 6 ? 'Min 6 characters' : null,
               ),
+              if (_login) ...<Widget>[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _busy ? null : _sendResetLink,
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+              ],
               const SizedBox(height: 18),
               SizedBox(
                 width: double.infinity,
@@ -351,11 +433,18 @@ class _WorkspaceShellState extends State<WorkspaceShell> {
 
   Future<void> _ensureUserDoc() async {
     final User user = widget.user;
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set(
+    final DocumentReference<Map<String, dynamic>> userRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final DocumentSnapshot<Map<String, dynamic>> existing = await userRef.get();
+    final Map<String, dynamic> existingData = existing.data() ?? <String, dynamic>{};
+    final String resolvedName = (existingData['displayName'] ?? user.displayName ?? 'Farad User').toString().trim();
+    if (resolvedName.isNotEmpty && user.displayName != resolvedName) {
+      await user.updateDisplayName(resolvedName);
+    }
+    await userRef.set(
       <String, dynamic>{
         'uid': user.uid,
         'email': (user.email ?? '').toLowerCase(),
-        'displayName': user.displayName ?? 'Farad User',
+        'displayName': resolvedName.isEmpty ? 'Farad User' : resolvedName,
         'isAdmin': (user.email ?? '').toLowerCase() == kAdminEmail,
         'preferredMode': _mode.name,
         'updatedAt': FieldValue.serverTimestamp(),
@@ -596,7 +685,7 @@ class _CustomerPanelState extends State<CustomerPanel> {
           'packageDetails': _package.text.trim(),
           'distanceKm': _distanceKm,
           'estimatedFare': _fare(driver),
-          'currency': 'NGN',
+          'currency': kCurrencyCode,
           'status': 'pending_driver',
           'paymentMethod': _paymentMethod.dbValue,
           'paymentLabel': _paymentMethod.label,
@@ -785,7 +874,7 @@ class _CustomerPanelState extends State<CustomerPanel> {
                       ),
                     ),
                     Text(
-                      'NGN ${_fare(driver).toStringAsFixed(0)}',
+                      formatCurrency(_fare(driver)),
                       style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ],
@@ -846,7 +935,7 @@ class _CustomerPanelState extends State<CustomerPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text('Driver: ${selectedDriver.displayName}'),
-                  Text('Fare: NGN ${_fare(selectedDriver).toStringAsFixed(0)}'),
+                  Text('Fare: ${formatCurrency(_fare(selectedDriver))}'),
                   Text('Payment: ${_paymentMethod.label}'),
                   if (_paymentMethod == PaymentMethod.card && _cardNumber.text.isNotEmpty)
                     Text('Card ending in ${_last4(_cardNumber.text)}'),
@@ -906,7 +995,7 @@ class CustomerOrders extends StatelessWidget {
                       subtitle: Text(
                         '${readableStatus((data['status'] ?? '').toString())} • ${data['chosenDriverName'] ?? 'Pending driver'}',
                       ),
-                      trailing: Text('NGN ${((data['estimatedFare'] ?? 0) as num).toStringAsFixed(0)}'),
+                      trailing: Text(formatCurrency(((data['estimatedFare'] ?? 0) as num).toDouble())),
                     );
                   }),
               ],
@@ -1009,8 +1098,8 @@ class DriverPanel extends StatelessWidget {
                   spacing: 12,
                   runSpacing: 12,
                   children: <Widget>[
-                    StatBox(title: 'Base fare', value: 'NGN ${driver!.baseFare.toStringAsFixed(0)}'),
-                    StatBox(title: 'Fee / km', value: 'NGN ${driver!.feePerKm.toStringAsFixed(0)}'),
+                    StatBox(title: 'Base fare', value: formatCurrency(driver!.baseFare)),
+                    StatBox(title: 'Fee / km', value: formatCurrency(driver!.feePerKm)),
                     StatBox(title: 'Rating', value: driver!.rating.toStringAsFixed(1)),
                   ],
                 ),
@@ -1075,7 +1164,7 @@ class DriverPanel extends StatelessWidget {
                               const SizedBox(height: 6),
                               Text('Customer: ${data['customerName'] ?? ''}'),
                               Text('Payment: ${data['paymentLabel'] ?? data['paymentMethod'] ?? ''}'),
-                              Text('Fare: NGN ${((data['estimatedFare'] ?? 0) as num).toStringAsFixed(0)}'),
+                              Text('Fare: ${formatCurrency(((data['estimatedFare'] ?? 0) as num).toDouble())}'),
                               Text('Status: ${readableStatus(status)}'),
                               const SizedBox(height: 10),
                               Wrap(
@@ -1132,8 +1221,8 @@ class _DriverSetupDialogState extends State<DriverSetupDialog> {
   final TextEditingController _vehicleType = TextEditingController(text: 'Cargo Van');
   final TextEditingController _truckModel = TextEditingController();
   final TextEditingController _plate = TextEditingController();
-  final TextEditingController _baseFare = TextEditingController(text: '3000');
-  final TextEditingController _feePerKm = TextEditingController(text: '500');
+  final TextEditingController _baseFare = TextEditingController(text: '35');
+  final TextEditingController _feePerKm = TextEditingController(text: '6');
 
   @override
   void initState() {
@@ -1168,7 +1257,7 @@ class _DriverSetupDialogState extends State<DriverSetupDialog> {
                 TextFormField(
                   controller: _name,
                   decoration: const InputDecoration(labelText: 'Display name'),
-                  validator: (String? value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (String? value) => value == null || value.trim().length < 3 ? 'Use at least 3 characters' : null,
                 ),
                 const SizedBox(height: 10),
                 TextFormField(initialValue: widget.email, readOnly: true, decoration: const InputDecoration(labelText: 'Email')),
@@ -1176,37 +1265,61 @@ class _DriverSetupDialogState extends State<DriverSetupDialog> {
                 TextFormField(
                   controller: _phone,
                   decoration: const InputDecoration(labelText: 'Phone number'),
-                  validator: (String? value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (String? value) {
+                    final String cleaned = (value ?? '').replaceAll(RegExp(r'[^0-9+]'), '');
+                    if (cleaned.length < 7) {
+                      return 'Enter a valid phone number';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _vehicleType,
                   decoration: const InputDecoration(labelText: 'Vehicle type'),
-                  validator: (String? value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (String? value) => value == null || value.trim().length < 3 ? 'Enter the vehicle type' : null,
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _truckModel,
                   decoration: const InputDecoration(labelText: 'Truck model'),
-                  validator: (String? value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (String? value) => value == null || value.trim().length < 2 ? 'Enter the truck model' : null,
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _plate,
                   decoration: const InputDecoration(labelText: 'License plate'),
-                  validator: (String? value) => value == null || value.trim().isEmpty ? 'Required' : null,
+                  validator: (String? value) {
+                    final String cleaned = (value ?? '').trim().toUpperCase();
+                    if (!RegExp(r'^[A-Z0-9-]{5,12}$').hasMatch(cleaned)) {
+                      return 'Use a valid plate like ABC-1234';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _baseFare,
-                  decoration: const InputDecoration(labelText: 'Base fare (NGN)'),
-                  validator: (String? value) => value == null || double.tryParse(value) == null ? 'Enter a number' : null,
+                  decoration: const InputDecoration(labelText: 'Base fare (USD)'),
+                  validator: (String? value) {
+                    final double? parsed = double.tryParse((value ?? '').trim());
+                    if (parsed == null || parsed <= 0) {
+                      return 'Enter a valid amount';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 TextFormField(
                   controller: _feePerKm,
-                  decoration: const InputDecoration(labelText: 'Fee per km (NGN)'),
-                  validator: (String? value) => value == null || double.tryParse(value) == null ? 'Enter a number' : null,
+                  decoration: const InputDecoration(labelText: 'Fee per km (USD)'),
+                  validator: (String? value) {
+                    final double? parsed = double.tryParse((value ?? '').trim());
+                    if (parsed == null || parsed <= 0) {
+                      return 'Enter a valid amount';
+                    }
+                    return null;
+                  },
                 ),
               ],
             ),
@@ -1327,4 +1440,8 @@ String readableStatus(String value) {
     default:
       return value.replaceAll('_', ' ');
   }
+}
+
+String formatCurrency(double amount) {
+  return '$kCurrencyCode ${amount.toStringAsFixed(0)}';
 }

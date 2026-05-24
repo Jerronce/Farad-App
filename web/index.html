@@ -18,21 +18,170 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Farad is the smart logistics app for live pickups, verified drivers, and premium delivery dispatch.">
+  <meta name="theme-color" content="#05070C">
+  <link rel="preload" href="logo.png?v=4" as="image">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="farad">
+  <meta name="apple-mobile-web-app-title" content="Farad">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>farad</title>
+  <title>Farad</title>
   <link rel="manifest" href="manifest.json">
+  <style>
+    :root {
+      color-scheme: dark;
+      --farad-bg: #05070c;
+      --farad-panel: rgba(8, 15, 28, 0.88);
+      --farad-blue: #00a8ff;
+      --farad-ice: #e8f7ff;
+      --farad-copy: #bcd4e6;
+      --farad-line: rgba(84, 189, 255, 0.24);
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(0, 168, 255, 0.22), transparent 38%),
+        radial-gradient(circle at bottom right, rgba(18, 79, 255, 0.26), transparent 34%),
+        var(--farad-bg);
+      font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+    }
+
+    body.app-loaded #farad-splash {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 220ms ease;
+      pointer-events: none;
+    }
+
+    #farad-splash {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      z-index: 9999;
+      background:
+        linear-gradient(180deg, rgba(5, 7, 12, 0.92), rgba(5, 7, 12, 0.98)),
+        var(--farad-bg);
+      will-change: opacity;
+    }
+
+    .farad-shell {
+      width: min(920px, 100%);
+      display: grid;
+      gap: 24px;
+      align-items: center;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .farad-brand {
+      display: flex;
+      justify-content: center;
+    }
+
+    .farad-brand img {
+      width: min(320px, 72vw);
+      filter: drop-shadow(0 20px 40px rgba(0, 131, 255, 0.26));
+    }
+
+    .farad-copy {
+      padding: 28px;
+      border-radius: 28px;
+      background: var(--farad-panel);
+      border: 1px solid var(--farad-line);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(10px);
+    }
+
+    .farad-kicker {
+      display: inline-flex;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--farad-ice);
+      background: rgba(0, 168, 255, 0.16);
+      border: 1px solid rgba(0, 168, 255, 0.3);
+    }
+
+    .farad-copy h1 {
+      margin: 16px 0 12px;
+      color: white;
+      font-size: clamp(2rem, 4vw, 3.6rem);
+      line-height: 1.02;
+    }
+
+    .farad-copy p {
+      margin: 0;
+      color: var(--farad-copy);
+      font-size: 1rem;
+      line-height: 1.75;
+    }
+
+    .farad-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .farad-points span {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: white;
+      font-size: 0.92rem;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .farad-status {
+      margin-top: 18px;
+      color: #7dd3fc;
+      font-size: 0.95rem;
+    }
+  </style>
 </head>
 <body>
+  <div id="farad-splash" aria-live="polite">
+    <div class="farad-shell">
+      <div class="farad-brand">
+        <img src="logo.png?v=4" alt="Farad logo" loading="eager" fetchpriority="high">
+      </div>
+      <div class="farad-copy">
+        <div class="farad-kicker">Farad Dispatch</div>
+        <h1>Move faster with live logistics that feel premium.</h1>
+        <p>Farad connects customers to verified drivers, smart pricing, and real-time delivery flow. Sign up, log in, book pickups, and dispatch jobs with a cleaner experience built to convert trust into action.</p>
+        <div class="farad-points">
+          <span>Live driver matching</span>
+          <span>Secure login</span>
+          <span>Payment-ready delivery flow</span>
+        </div>
+        <div class="farad-status">Loading your Farad workspace...</div>
+      </div>
+    </div>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    window.addEventListener('load', function () {
+      window.setTimeout(function () {
+        document.body.classList.add('app-loaded');
+      }, 650);
+    });
+    window.setTimeout(function () {
+      document.body.classList.add('app-loaded');
+    }, 1400);
+    window.addEventListener('flutter-first-frame', function () {
+      document.body.classList.add('app-loaded');
+    });
+  </script>
 </body>
 </html>

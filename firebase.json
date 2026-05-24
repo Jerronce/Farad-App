@@ -1,13 +1,29 @@
 {
   "hosting": {
-    "site": "farad-5bc61",
-    "public": "build/web",
+    "site": "farad",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
     ],
     "rewrites": [
+      {
+        "source": "/api/ai/command",
+        "function": "fleetAiCommand"
+      },
+      {
+        "source": "/api/ai/vehicle-audit",
+        "function": "vehicleAudit"
+      },
+      {
+        "source": "/api/payment/create",
+        "function": "createFlutterwavePayment"
+      },
+      {
+        "source": "/api/payment/callback",
+        "function": "flutterwaveCallback"
+      },
       {
         "source": "**",
         "destination": "/index.html"
