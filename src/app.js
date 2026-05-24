@@ -31,6 +31,7 @@ import {
 const { collection, query, where, getDocs, limit, onSnapshot } = firebaseHelpers;
 
 const app = document.querySelector("#app");
+const landingPage = () => window.location.hash.replace("#", "") || "home";
 
 const tripQuestions = [
   { key: "country", label: "Country", prompt: "Which country should Farad Fleet AI operate in for this trip?", placeholder: "Enter country" },
@@ -137,6 +138,28 @@ function setAlert(type, message) {
 
 function clearAlert() {
   state.alert = null;
+}
+
+function friendlyAuthError(error) {
+  const message = String(error?.message || "");
+
+  if (message.includes("auth/unauthorized-domain")) {
+    return "Google sign-in is being finalized for this web address. Please use email sign-in for now while the instant access route finishes syncing.";
+  }
+
+  if (message.includes("auth/popup-closed-by-user")) {
+    return "Google sign-in was closed before it finished. Please try again.";
+  }
+
+  if (message.includes("auth/popup-blocked")) {
+    return "Your browser blocked the Google sign-in window. Please allow popups for Farad and try again.";
+  }
+
+  if (message.includes("auth/invalid-credential") || message.includes("auth/invalid-login-credentials")) {
+    return "That login was not accepted. Please check your details or sign up first.";
+  }
+
+  return message || "That step could not be completed right now.";
 }
 
 function isAdminAccount() {
@@ -321,7 +344,7 @@ async function handleAuthSubmit(event) {
       setAlert("success", "Driver portal opened.");
     }
   } catch (error) {
-    setAlert("error", error.message || "Authentication failed.");
+    setAlert("error", friendlyAuthError(error));
   } finally {
     state.busy.auth = false;
     render();
@@ -339,7 +362,7 @@ async function handleForgotPassword() {
     await requestPasswordReset(email);
     setAlert("success", "Password reset email sent. Check your inbox.");
   } catch (error) {
-    setAlert("error", error.message || "Could not send password reset email.");
+    setAlert("error", friendlyAuthError(error));
   }
 }
 
@@ -355,7 +378,7 @@ async function handleGoogleAuth() {
     await signInWithGoogleFlow({ role, intent });
     setAlert("success", `Google ${intent === "signup" ? "sign-up" : "login"} completed successfully.`);
   } catch (error) {
-    setAlert("error", error.message || "Google authentication failed.");
+    setAlert("error", friendlyAuthError(error));
   } finally {
     state.busy.auth = false;
     render();
@@ -451,7 +474,7 @@ function renderAuth() {
           </div>
         </form>
         <div class="oauth-box">
-          <div class="muted">Google sign-in and sign-up are enabled in Firebase for this portal.</div>
+          <div class="muted">Use instant Google access or continue with your email to enter Farad smoothly.</div>
           <button class="button secondary" id="google-auth-button" type="button" ${state.busy.auth ? "disabled" : ""}>
             ${isSignup ? `Continue with Google for ${isDriverPortal ? "Driver Sign-Up" : "User Sign-Up"}` : `Continue with Google for ${isDriverPortal ? "Driver Login" : "User Login"}`}
           </button>
@@ -467,8 +490,8 @@ function renderAuth() {
           <p>If your email does not already exist in the Firestore registry for the selected portal, login is rejected immediately and you are directed to sign up first.</p>
         </div>
         <div class="detail-card">
-          <strong>Root Owner Lock</strong>
-          <p>Only the root admin profile for Jerronce101@gmail.com can control ecosystem-wide infrastructure, premium token oversight, and global database authority.</p>
+          <strong>Protected Operations</strong>
+          <p>Core infrastructure controls are privately protected in the background so the experience stays clean and safe for everyone else.</p>
         </div>
       </article>
     </section>
@@ -661,7 +684,7 @@ function renderDriverOnboarding() {
         <h3>Verified Driver Portal</h3>
         <p>Farad Fleet AI collects your driver details one step at a time, then runs a real vehicle inspection gate.</p>
       </div>
-      ${rejected ? `<div class="detail-card danger-soft"><strong>Vehicle inspection verification failed.</strong><p>${escapeHtml(verificationMessage)} To appeal your model year status or complete manual verification, please talk directly to Mexty at <a href="https://mexty101.web.app" target="_blank" rel="noreferrer">mexty101.web.app</a>.</p></div>` : `<div class="detail-card"><strong>Verification status</strong><p>${escapeHtml(verificationState)} • ${escapeHtml(verificationMessage)}</p></div>`}
+      ${rejected ? `<div class="detail-card danger-soft"><strong>Vehicle inspection verification failed.</strong><p>${escapeHtml(verificationMessage)} To appeal your model year status or complete manual verification, please talk directly to <a href="https://mexty101.web.app" target="_blank" rel="noreferrer">Mexty</a>.</p></div>` : `<div class="detail-card"><strong>Verification status</strong><p>${escapeHtml(verificationState)} • ${escapeHtml(verificationMessage)}</p></div>`}
       <div class="wizard-shell">
         <div class="wizard-meta">Question ${state.driverStep + 1} of ${driverQuestions.length}</div>
         <div class="wizard-prompt">${escapeHtml(question.prompt)}</div>
@@ -733,26 +756,41 @@ function renderAdminCard() {
 }
 
 function renderFounderAndPolicies() {
+  const page = landingPage();
+
+  if (page === "founder") {
+    return `
+      <section class="page-shell" id="founder">
+        <article class="panel-block page-panel">
+          <div class="section-heading">
+            <h2>About Founder</h2>
+            <p>Jeremiah Adedurin, also known as Jerry, is the Chief Technology Officer and Founder of Prae Technologies.</p>
+          </div>
+          <p class="policy-text">
+            Jerry is an elite full-stack developer and AI/ML systems architect committed to deploying absolute global automation solutions across hiring intelligence, mobility systems, and autonomous digital infrastructure.
+          </p>
+        </article>
+      </section>
+    `;
+  }
+
+  if (page === "policies") {
+    return `
+      <section class="page-shell" id="policies">
+        <article class="panel-block page-panel">
+          <div class="section-heading">
+            <h2>Corporate Policies</h2>
+            <p>Refund and privacy standards for Farad Fleet AI.</p>
+          </div>
+          <p class="policy-text"><strong>Refund Policy:</strong> Because Farad Fleet AI activates premium AI planning, vehicle vision assessments, and live orchestration workloads as soon as access is granted, refund requests pass through strict internal Prae Technologies review via support lines.</p>
+          <p class="policy-text"><strong>Privacy Policy:</strong> Farad keeps user movement data, credentials, uploaded driver vehicle images, and trip history securely isolated inside protected private records and never sells them to third-party brokers.</p>
+        </article>
+      </section>
+    `;
+  }
+
   return `
-    <section class="info-grid">
-      <article class="panel-block" id="founder">
-        <div class="section-heading">
-          <h3>About Founder</h3>
-          <p>Jeremiah Adedurin, also known as Jerry, is the Chief Technology Officer and Founder of Prae Technologies.</p>
-        </div>
-        <p class="policy-text">
-          Jerry is an elite full-stack developer and AI/ML systems architect committed to deploying absolute global automation solutions across hiring intelligence, mobility systems, and autonomous digital infrastructure.
-        </p>
-      </article>
-      <article class="panel-block" id="policies">
-        <div class="section-heading">
-          <h3>Corporate Policies</h3>
-          <p>Refund Policy and Privacy Policy for Farad Fleet AI.</p>
-        </div>
-        <p class="policy-text"><strong>Refund Policy:</strong> Because Farad Fleet AI activates premium Google AI compute cycles, vehicle vision assessments, and real-time orchestration workloads as soon as access is granted, refund requests pass through strict internal Prae Technologies review via support lines.</p>
-        <p class="policy-text"><strong>Privacy Policy:</strong> Farad guarantees private database isolation. User profiles, password credentials, uploaded driver vehicle images, and individual trip history streams remain secured inside protected Firebase data structures and are never sold to third-party brokers.</p>
-      </article>
-    </section>
+    <section class="page-shell compact-empty"></section>
   `;
 }
 
@@ -842,7 +880,9 @@ function renderApp() {
       ? isDriver()
         ? renderDriverDashboard()
         : renderUserDashboard()
-      : `${renderLanding()}${renderAuth()}${renderFounderAndPolicies()}`;
+      : landingPage() === "home" || landingPage() === "pricing" || landingPage() === "driver-portal"
+        ? `${renderLanding()}${renderAuth()}`
+        : renderFounderAndPolicies();
 
   app.innerHTML = `
     <div class="shell">
@@ -851,7 +891,7 @@ function renderApp() {
       ${content}
       <footer class="footer">
         <span>© Prae Technologies. All Rights Reserved.</span>
-        <span>Need urgent operational assistance or verification review? Chat with our live support core: <a href="https://mexty101.web.app" target="_blank" rel="noreferrer">Mexty (mexty101.web.app)</a></span>
+        <span>Need urgent operational assistance or verification review? Chat with our live support core: <a href="https://mexty101.web.app" target="_blank" rel="noreferrer">Mexty</a></span>
       </footer>
     </div>
   `;
@@ -1153,13 +1193,14 @@ function render() {
 }
 
 subscribeToAuth(hydrateSession);
+window.addEventListener("hashchange", render);
 
 if (!firebaseReady) {
   state.loading = false;
   state.alert = {
     type: "error",
     message:
-      "Firebase configuration is incomplete. Add your real VITE_FIREBASE_* values before using live authentication and database features."
+      "Farad is still connecting its private access systems. Refresh shortly and try again."
   };
 }
 
