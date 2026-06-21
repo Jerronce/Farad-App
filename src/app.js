@@ -2759,6 +2759,7 @@ async function handleSubscriptionCheckout(productTier = PRODUCT_TIER) {
   const amount = normalizedTier === ECOSYSTEM_TIER ? ECOSYSTEM_PLAN_USD : MONTHLY_PLAN_USD;
 
   try {
+    const idToken = await state.authUser.getIdToken();
     savePendingPayment({
       type: "subscription",
       productTier: normalizedTier,
@@ -2773,7 +2774,9 @@ async function handleSubscriptionCheckout(productTier = PRODUCT_TIER) {
       email: state.authUser.email || state.account.email || "",
       name: state.account.fullName || state.authUser.displayName || state.authUser.email || "Farad Member",
       role: state.account.role || "user",
-      productTier: normalizedTier
+      productTier: normalizedTier,
+      userId: state.authUser.uid,
+      idToken
     });
   } catch (error) {
     captureAppError(error, { area: "billing", action: "subscription-checkout" });
@@ -3005,6 +3008,7 @@ capturePraeHireTransitFromUrl();
   const paymentState =
     params.get("payment") ||
     (flutterwaveStatus === "successful" || transactionId ? "success" : flutterwaveStatus === "cancelled" || flutterwaveStatus === "failed" ? "failed" : "");
+  const paymentVerified = params.get("verified") === "true";
   const paymentType = params.get("type") || pendingPayment?.type || "";
   const paymentTripId = params.get("tripId") || pendingPayment?.tripId || "";
   const paymentEmail = params.get("email") || pendingPayment?.email || "";
@@ -3014,7 +3018,7 @@ capturePraeHireTransitFromUrl();
   const paymentApp = params.get("app") || pendingPayment?.app || (paymentTier === ECOSYSTEM_TIER ? "all" : "farad");
   const paymentAmount = Number(params.get("amount") || pendingPayment?.amount || (paymentTier === ECOSYSTEM_TIER ? ECOSYSTEM_PLAN_USD : MONTHLY_PLAN_USD));
   if (paymentState === "success") {
-    if (paymentType === "subscription" && paymentEmail) {
+    if (paymentType === "subscription" && paymentEmail && paymentVerified) {
       const subscription = buildSubscriptionRecord({
         userId: state.authUser?.uid || "",
         productTier: paymentTier,
@@ -3085,6 +3089,23 @@ window.addEventListener("farad-payment-closed", (event) => {
   state.alert = {
     type: "error",
     message: "Upgrade checkout was closed or cancelled. Your free access remains active."
+  };
+  clearPendingPayment();
+  render();
+});
+
+window.addEventListener("farad-payment-verifying", () => {
+  state.alert = {
+    type: "success",
+    message: "Verifying payment securely. Please keep this page open."
+  };
+  render();
+});
+
+window.addEventListener("farad-payment-verification-failed", (event) => {
+  state.alert = {
+    type: "error",
+    message: event.detail?.message || "Payment verification failed. Your free access remains active."
   };
   clearPendingPayment();
   render();

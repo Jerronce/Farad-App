@@ -6,6 +6,10 @@ export const ECOSYSTEM_PLAN_USD = 19;
 export const FLUTTERWAVE_PUBLIC_KEY = "FLWPUBK-16a72bd54f4eb876e6a705d899b049d8-X";
 
 const FLUTTERWAVE_SCRIPT_SRC = "https://checkout.flutterwave.com/v3.js";
+const PAYMENT_VERIFY_URL =
+  window.env?.PAYMENT_VERIFY_URL ||
+  window.env?.VITE_PAYMENT_VERIFY_URL ||
+  "https://vercel-ai-proxy-omega.vercel.app/api/payments/verify";
 
 export function hasActivePremium(userRecord) {
   const tier = userRecord?.productTier || userRecord?.subscription?.productTier || userRecord?.subscriptionTier;
@@ -123,11 +127,42 @@ async function openFlutterwaveModal(config) {
   FlutterwaveCheckout(config);
 }
 
+async function verifySubscriptionPayment({ transactionId, txRef, productTier, userId, idToken }) {
+  if (!transactionId) {
+    throw new Error("Flutterwave did not return a transaction ID for verification.");
+  }
+
+  if (!userId || !idToken) {
+    throw new Error("Sign in again before verifying this payment.");
+  }
+
+  const response = await fetch(PAYMENT_VERIFY_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`
+    },
+    body: JSON.stringify({
+      transactionId: String(transactionId),
+      txRef: String(txRef || ""),
+      productTier,
+      userId
+    })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.ok !== true) {
+    throw new Error(data?.error || "Payment verification failed. Your free access remains active.");
+  }
+  return data;
+}
+
 export async function openSubscriptionCheckout({
   email = "",
   name = "Farad Member",
   role = "user",
-  productTier = PRODUCT_TIER
+  productTier = PRODUCT_TIER,
+  userId = "",
+  idToken = ""
 } = {}) {
   const emailValue = String(email || "").trim();
   const displayName = String(name || "").trim() || "Farad Member";
@@ -160,19 +195,59 @@ export async function openSubscriptionCheckout({
       description: `${planName} monthly USD access`,
       logo: `${window.location.origin}/logo.png`
     },
-    callback(response) {
+    async callback(response) {
       const success = response?.status === "successful" || response?.status === "completed" || Boolean(response?.transaction_id);
-      window.location.href = buildReturnUrl({
-        payment: success ? "success" : "failed",
-        type: "subscription",
-        productTier,
-        app,
-        amount,
-        email: emailValue,
-        role: roleValue,
-        tx_ref: response?.tx_ref || txRef,
-        transaction_id: response?.transaction_id || ""
-      });
+      if (!success) {
+        window.location.href = buildReturnUrl({
+          payment: "failed",
+          type: "subscription",
+          productTier,
+          app,
+          amount,
+          email: emailValue,
+          role: roleValue,
+          tx_ref: response?.tx_ref || txRef,
+          transaction_id: response?.transaction_id || ""
+        });
+        return;
+      }
+
+      window.dispatchEvent(new CustomEvent("farad-payment-verifying", { detail: { productTier, txRef } }));
+      try {
+        await verifySubscriptionPayment({
+          transactionId: response?.transaction_id,
+          txRef: response?.tx_ref || txRef,
+          productTier,
+          userId,
+          idToken
+        });
+        window.location.href = buildReturnUrl({
+          payment: "success",
+          verified: "true",
+          type: "subscription",
+          productTier,
+          app,
+          amount,
+          email: emailValue,
+          role: roleValue,
+          tx_ref: response?.tx_ref || txRef,
+          transaction_id: response?.transaction_id || ""
+        });
+      } catch (error) {
+        window.dispatchEvent(new CustomEvent("farad-payment-verification-failed", { detail: { message: error.message } }));
+        window.location.href = buildReturnUrl({
+          payment: "failed",
+          verified: "false",
+          type: "subscription",
+          productTier,
+          app,
+          amount,
+          email: emailValue,
+          role: roleValue,
+          tx_ref: response?.tx_ref || txRef,
+          transaction_id: response?.transaction_id || ""
+        });
+      }
     },
     onclose() {
       window.dispatchEvent(new CustomEvent("farad-payment-closed", { detail: { type: "subscription", txRef } }));

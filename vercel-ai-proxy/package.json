@@ -1,0 +1,17 @@
+{
+  "name": "prae-ai-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google/genai": "^1.17.0",
+    "@sentry/node": "^10.59.0",
+    "firebase-admin": "^14.0.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}
